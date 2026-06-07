@@ -57,9 +57,13 @@ export default async function HomePage() {
                 {tagline}
               </p>
               <div className="bg-[#1a2535]/80 border border-[#243448] rounded-xl p-6 sm:p-8 mb-8 backdrop-blur">
-                <p className="text-[#c9a84c] text-sm font-semibold uppercase tracking-widest mb-4">Track Your Shipment</p>
+                <p className="text-[#c9a84c] text-sm font-bold uppercase tracking-[0.2em] mb-5" style={{ fontFamily: 'inherit', letterSpacing: '0.2em' }}>
+                  Track Your Shipment
+                </p>
                 <TrackingInput size="large" />
-                <p className="text-[#4a5a6a] text-xs mt-3">Enter your Crownport tracking code to get real-time updates</p>
+                <p className="text-[#4a5a6a] text-xs mt-4 text-center">
+                  Enter your Crownport tracking code to get real-time updates
+                </p>
               </div>
               <div className="flex flex-wrap gap-3 justify-center">
                 <Link href="/ship" className="btn-gold"><Package size={18} /> Ship a Package</Link>

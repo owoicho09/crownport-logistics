@@ -1,0 +1,82 @@
+Fix the following specific issues in the existing Crownport Logistics project. Do not rebuild the project — make targeted, surgical fixes only.
+
+---
+
+ISSUE 1 — Tracking input visual fix (homepage hero section)
+
+The tracking input box has a package/box icon that is overlapping or clipping into the placeholder text, making it unreadable. Fix this properly:
+
+- The icon should sit inside the input on the left with correct left padding (pl-12 or pl-14) applied to the input element itself so placeholder text and typed text never overlap the icon
+- The icon must be vertically centered and positioned absolutely inside a relative wrapper, NOT as a flex child that shifts text
+- The input border, background, and radius must feel premium — use a slightly lighter dark background for the input field itself (e.g. rgba white at 8-10% opacity or a specific dark shade), a subtle border that glows or brightens on focus, and the gold/amber accent color on focus ring
+- The Track button must be visually tight to the input with no gap, same height, and the gold/amber fill with dark text
+- On mobile the input and button should stack vertically and be full width
+- The label "TRACK YOUR SHIPMENT" above the input should use the display font, proper letter spacing, and the gold accent color
+- The helper text below ("Enter your Crownport tracking code to get real-time updates") should be small, muted, and centered
+
+---
+
+ISSUE 2 — Destinations page: real worldwide content
+
+The destinations page (/destinations) must have real, comprehensive worldwide content — not placeholder or lorem ipsum text. Crownport ships globally. Populate the destinations database seed AND the page UI with the following regions and a representative set of countries per region:
+
+Africa (at minimum): Nigeria, Ghana, Kenya, South Africa, Ethiopia, Egypt, Tanzania, Uganda, Senegal, Cameroon, Côte d'Ivoire, Rwanda, Zimbabwe, Zambia, Mozambique
+Europe (at minimum): United Kingdom, Germany, France, Netherlands, Belgium, Spain, Italy, Portugal, Sweden, Norway, Denmark, Poland, Switzerland, Austria, Ireland, Greece, Finland, Czech Republic, Romania, Hungary
+Americas (at minimum): United States, Canada, Brazil, Mexico, Argentina, Colombia, Chile, Peru, Ecuador, Jamaica, Trinidad and Tobago, Panama, Costa Rica, Dominican Republic, Uruguay
+Asia Pacific (at minimum): China, Japan, Australia, India, South Korea, Singapore, Malaysia, Indonesia, Thailand, Philippines, Vietnam, New Zealand, Hong Kong, Pakistan, Bangladesh, Sri Lanka
+Middle East (at minimum): UAE, Saudi Arabia, Qatar, Kuwait, Bahrain, Oman, Jordan, Lebanon, Turkey, Israel
+
+Each country entry must have: country name, flag emoji, region, estimated transit time range (e.g. "3–5 business days" for nearby, "7–14 business days" for far), and a short note about service availability (e.g. "Express and Standard available", "Standard only — remote areas may take longer"). These values should be realistic and varied by distance from a UK/Europe hub assumption.
+
+The destinations page UI should display countries grouped by region with a clean, filterable layout. Each region has a header. Each country card shows the flag emoji, country name, transit time, and service note. Add a search/filter input at the top that filters countries by name in real time (client-side). The design should feel like a professional global coverage page — not a plain list.
+
+---
+
+ISSUE 3 — Locations page: real worldwide hub content
+
+The locations page (/locations) must have real hub and office content. Populate the locations seed data with at minimum the following:
+
+- Lagos, Nigeria — West Africa Hub — full address area, services: pickup, drop-off, customs assistance, express processing
+- London, United Kingdom — Europe HQ — services: all services, international dispatch
+- Dubai, UAE — Middle East & Asia Gateway — services: all services, international transit hub
+- New York, USA — North America Operations — services: drop-off, express, freight
+- Johannesburg, South Africa — Southern Africa Hub — services: pickup, drop-off, standard and express
+- Nairobi, Kenya — East Africa Hub — services: pickup, drop-off, standard
+- Singapore — Asia Pacific Gateway — services: all services, express
+
+Each location card must show: office name, city and country, address (can be a realistic-looking but generic address like "14 Crown Street, Business District"), phone number (use realistic placeholder format per country), hours (Mon–Fri 8am–6pm, Sat 9am–1pm is fine as a default), and a "Services Available" tag list. Design the page as a grid of location cards that looks polished and international.
+
+---
+
+ISSUE 4 — Full end-to-end connectivity audit and fix
+
+Walk through every page and API route in the project and ensure the following are all actually connected and functional:
+
+Public tracking flow: /track/[code] must query the shipments table and tracking_events table from Supabase and render real data. The 30-second polling must be wired up. Test with a shipment that exists in the database.
+
+Ship form: /ship form submission must POST to an API route that inserts into the shipments table, generates and returns a tracking code, and sends two emails via Resend — one to the customer (with tracking code and tracking URL) and one to the admin alert email. If Resend is not yet configured, log the email payload clearly so it is visible in dev console. The tracking code generation must use a Supabase sequence or atomic counter — not Math.random().
+
+Rate calculator: /rates must query the rate_table from Supabase and compute a real price based on the selected origin zone, destination zone, service type, weight and dimensions (volumetric weight = L×W×H/5000, chargeable weight = max of actual and volumetric). If the rate table is empty, seed it with realistic base rates: Express base $35 + $8/kg, Standard base $18 + $4/kg, Economy base $10 + $2.50/kg, Freight base $50 + $3/kg — with regional multipliers (Africa ×1.2, Americas ×1.1, Asia Pacific ×1.15, Middle East ×1.05, Europe ×1.0).
+
+Admin shipments table: must load real records from Supabase. Creating a shipment from admin must insert to the database and show immediately in the table. Status changes must update the shipments table and insert a tracking event. Adding a tracking event from admin must insert to tracking_events and update the shipment current_status.
+
+Admin notifications: When a tracking event is added that matches a notification trigger (Out for Delivery, Delivered, Exception), the system must actually call Resend with the correct template and recipient email. Log the full Resend response whether success or failure.
+
+Admin auth: The /admin route must be properly protected — unauthenticated requests redirect to /admin/login. The login form must use Supabase Auth sign-in. After login, the session must persist correctly across page refreshes.
+
+All Supabase queries must use the service role client on the server side (in API routes and server components) and the anon client on the client side where appropriate. Row Level Security policies must be in place so public users can only read non-test shipment data.
+
+---
+
+ISSUE 5 — General polish pass
+
+- Ensure the site logo in the navbar renders correctly — the crown or logo mark must not be clipped, misaligned, or overflowing its container. If it is SVG-based, ensure viewBox and dimensions are correct. If it is text-based, ensure font is loaded and rendering.
+- Ensure all navigation links in the public navbar actually point to the correct routes and those routes exist with real content (not 404)
+- Ensure the mobile hamburger menu works and all links are accessible on mobile
+- Add a scroll-to-top behavior when navigating between pages
+- Ensure the footer has real content: company name, navigation links grouped by category (Services, Company, Legal), contact details, and copyright line
+- Any page that currently has placeholder/lorem ipsum content must be replaced with realistic Crownport Logistics content
+
+ISSUE 6 - admin access
+
+create a default amdin login and store in the .env file 
