@@ -1,0 +1,101 @@
+Build a complete, production-grade courier and shipment tracking web application for Crownport Logistics (domain: crownportlogistics.site). This is a real business — a global courier company that operates its own logistics infrastructure and uses FedEx and UPS as silent offline physical carriers only. There is no API integration with FedEx or UPS; they are simply a data field ("carrier") on a shipment. Crownport owns the entire customer experience, all tracking codes, all notifications, and all data.
+
+The application has two surfaces: a public-facing marketing and tracking site, and a private admin operations panel. It is built with Next.js App Router (TypeScript), Tailwind CSS, Supabase (PostgreSQL database + file storage for proof-of-delivery photos and any uploaded documents), Resend for all transactional email notifications, and deployed to Vercel. The domain is crownportlogistics.site. Every credential, key, and configurable value must live in a .env file with descriptive placeholder values the operator will replace. Comprehensive server-side logging must exist throughout using a structured logger so the operator can debug any flow in production.
+
+---
+
+BRAND AND DESIGN
+
+The company name is Crownport Logistics. The aesthetic direction is premium, authoritative, and global — think the weight of a serious international shipping company, not a startup. Dark navy or deep charcoal as the primary background, with a sharp gold or amber accent that signals quality and trust. Typography should be distinctive and refined — a strong display font for headings paired with a legible body font. The site must feel like it belongs alongside DHL and FedEx in terms of visual credibility, but more modern and boutique. Every page must be fully responsive and look exceptional on both mobile and desktop. The admin panel should feel like a professional SaaS ops tool — dense but organised, dark-themed, with clear visual hierarchy.
+
+---
+
+PUBLIC SURFACE (no customer account required for browsing or tracking)
+
+The public site has the following pages and capabilities:
+
+Homepage: A powerful hero section with the company name, a short tagline about global courier services, and a large prominent tracking input where anyone can enter a tracking code and immediately see their shipment status. Below the hero: service highlights (Express, Standard, Freight, International), a coverage stats strip (countries served, shipments delivered, years operating — these are configurable values from .env or a settings table), a "How it works" section for shipping, a trust strip, and a footer with navigation, contact info, and social links. The tracking input on the homepage should navigate to the tracking page with the code pre-filled.
+
+Track page (/track and /track/[code]): This is the most important page on the site. It renders server-side for fast load on any connection. It shows: a horizontal macro progress stepper (Label Created → Picked Up → In Transit → Out for Delivery → Delivered — or whatever the current status is), an estimated delivery date callout, shipment metadata (origin, destination, service type, weight, physical carrier), and a vertical event timeline showing every checkpoint the admin has logged with timestamp, location, and description. If a status is an exception or requires attention, display a prominent banner with the message the admin wrote. The tracking page polls for updates every 30 seconds while the tab is visible. No login is required. The page must handle invalid or not-found tracking codes gracefully with a helpful message.
+
+Services page: Overview of Crownport's shipping services — Express, Standard Economy, International, Freight, eCommerce Fulfillment, Same-Day (if applicable). Each service has a name, description, estimated transit times, and key features. This content is managed from the admin settings.
+
+Rates page: A quote calculator where a user enters origin country, destination country, package weight and dimensions, and service type. The calculator returns an estimated price range. Rates are configured by the admin in a rates table (origin zone, destination zone, service, price per kg, base fee). This is not connected to any carrier API — it uses Crownport's own rate table entirely.
+
+Ship an item (/ship): A multi-step form where a customer can request a shipment. They enter sender details (name, address, country, phone, email), recipient details (name, address, country, phone), package details (weight, dimensions, declared value, contents description), and select a service. On submission this creates a shipment record in the database with status "Pending Review", issues a Crownport tracking code, sends a confirmation email to the customer via Resend with their tracking code and what to expect next, and notifies the admin via email that a new shipment request has been received. The customer does not need an account. The tracking code is auto-generated using a deterministic format: a two-letter service prefix + 8-digit zero-padded serial from a Supabase sequence + a check character + country code (e.g. EX000000012AUS). This format must be consistent, scannable, and collision-free.
+
+Destinations page: A visual list or grid of countries Crownport ships to, grouped by region (Africa, Europe, Americas, Asia Pacific, Middle East). Clicking a country shows transit times and any special notes for that destination. Content managed from admin.
+
+Locations page: A list of Crownport offices, hubs, and drop-off points. Each location has name, address, city, country, phone, hours, and services available. Content managed from admin.
+
+Pickup page: A simple form to schedule a pickup — address, preferred date and time window, contact details, any special instructions. Creates a pickup request record in the database and notifies admin.
+
+About, Contact, and standard pages: Managed content — company story, leadership (optional), mission, contact form that emails admin via Resend.
+
+---
+
+ADMIN PANEL (/admin — protected by Supabase Auth, email + password only)
+
+The admin is a full logistics operations CRM. Only authenticated users with admin role can access it. The admin panel is a dark-themed professional dashboard with sidebar navigation. Every critical action must be logged to an audit_log table.
+
+Dashboard: KPI tiles showing total active shipments, delivered today, exceptions requiring attention, pending review shipments, pickup requests awaiting confirmation, and new ship requests in the last 24 hours. A shipment status distribution chart. Recent activity feed.
+
+Shipments: A full paginated, filterable, searchable table of all shipments. Columns: tracking code, status badge, sender name, recipient name + country, service, created date, estimated delivery, physical carrier (FedEx/UPS/Own fleet — just a text field), and an actions column. Filters for status, date range, country, service, carrier. Full text search on tracking code, sender, recipient. Clicking a row opens a full shipment detail side panel or page showing all fields, the full event timeline, attached files, and notification history. From the detail view the admin can: edit any field, change status, add a tracking event (with timestamp, location, description, and event type), upload proof of delivery photos (stored in Supabase Storage), mark as exception with a custom message that will display publicly on the tracking page, cancel the shipment, and manually trigger any notification.
+
+Create shipment: Admin can create a shipment manually — same fields as the public ship form plus additional internal fields (assigned courier, internal notes, actual carrier, physical tracking reference if they have one from FedEx/UPS for internal use only). Tracking code is auto-issued on creation.
+
+Tracking events: When an admin adds an event to a shipment, they select the event type from a predefined list (Label Created, Picked Up, Arrived at Hub, In Transit, Customs Clearance, Out for Delivery, Delivery Attempted, Delivered, Returned to Sender, Exception, On Hold) and optionally enter a location and custom description. Each event is timestamped. The system updates the shipment's current status to match the latest event automatically. Adding certain event types (Out for Delivery, Delivered, Exception) automatically triggers the corresponding email notification to the recipient if notification rules are enabled for that shipment.
+
+Notification control: A dedicated section where the admin configures which email notifications fire automatically on which status transitions. The available notification types are: Shipment Confirmed (fires on creation, to sender), Picked Up, Arrived at Hub, In Transit / Departed Origin, Customs Hold (requires attention), Out for Delivery (fires morning of delivery attempt), Delivery Attempted (failed), Delivered (with any proof of delivery photo URL), Exception / Attention Required (with custom message), Return to Sender. For each notification type the admin can enable/disable it globally, edit the email subject and body template (supporting variables like {{tracking_code}}, {{recipient_name}}, {{estimated_delivery}}, {{status_message}}, {{event_location}}, {{carrier}}, {{tracking_url}}). Emails are sent via Resend. The admin can also manually send any notification to any shipment from the shipment detail view, overriding rules.
+
+Exceptions queue: A filtered view of all shipments with status Exception or Attention Required. Shows the exception message, how long it has been in exception state, and quick actions to resolve it (update status, contact customer, add note).
+
+Pickup requests: A table of all pickup requests with status (Pending, Confirmed, Completed, Cancelled). Admin can confirm a pickup (which sends a confirmation email to the customer with the scheduled time), reassign to a driver, mark complete, or cancel.
+
+Rates management: A CRUD interface for the rate table. The admin configures origin zones, destination zones, service types, base fees, and per-kg rates. The public rate calculator uses this table.
+
+Destinations management: CRUD for destination countries — country name, region, flag emoji, transit time ranges, special notes, active/inactive.
+
+Locations management: CRUD for Crownport office and drop-off locations.
+
+Reports: Basic analytics views — shipments by status over time, delivery performance (on-time vs late based on estimated delivery date), volume by destination country, volume by service type, exception rate. Date range filter. CSV export.
+
+Settings: Company name, tagline, contact email, phone, address, social links, coverage stats numbers (countries, shipments, years — displayed on homepage), notification sender name and from-address for Resend, admin email for receiving alerts, and any other global configuration. All stored in a settings table, not .env (so admin can change them without redeployment), except true secrets which stay in .env.
+
+User management: Admin can create, edit, and deactivate admin users. Role is simply admin — no complex RBAC needed for now.
+
+Audit log: Every mutation (create, update, delete, status change, notification sent) is logged to an audit_log table with actor, action, entity type, entity ID, before/after diff, timestamp, and IP. Viewable as a paginated read-only table in the admin.
+
+---
+
+TEST AND SANDBOX SYSTEM
+
+The admin must have a dedicated Test Mode section that allows the operator to validate the entire system before and during production use without polluting live data.
+
+Test mode works as follows: There is a global toggle in admin settings that switches the system into test mode. In test mode, all shipments created (from the admin or the public ship form) are flagged as test records (is_test: true in the database) and are completely invisible on live dashboard counts, reports, and the public tracking page for non-test codes. Test shipments are only visible in the Test Mode section of the admin.
+
+The Test Mode section of the admin includes: a test shipment creator that pre-fills with fake data so the operator can create a full test shipment in one click; a full simulation panel where the operator can advance a test shipment through every status stage one step at a time and observe exactly what happens (database update, notification email sent via Resend to a configured test email address, tracking page update); a notification preview tool where the operator selects a notification type, fills in sample variables, and sends a preview email to a test address to verify formatting; a test tracking page link that opens the public tracking page for the test shipment in a new tab so the operator can see exactly what a customer would see; and a clear all test data button that wipes all test records.
+
+Outside of global test mode, the admin can also mark any individual shipment as a test record from the shipment detail view, which removes it from live counts without entering full test mode.
+
+All test emails sent via Resend must have a visible "[TEST]" prefix in the subject line to distinguish them from real notifications.
+
+---
+
+DATABASE SCHEMA (Supabase / PostgreSQL)
+
+Design the schema to be clean, normalized, and production-ready. Key tables: shipments (all shipment data including current_status, is_test, all address fields denormalized for simplicity, service_type, physical_carrier, estimated_delivery, tracking_code unique, internal notes, customer email for notifications), tracking_events (shipment_id, event_type, event_time, location_text, description, created_by_admin_id), notifications_log (shipment_id, notification_type, recipient_email, sent_at, resend_message_id, status, error if any), pickup_requests, rate_table, destinations, locations, notification_templates (one row per notification type, editable subject + body), settings (key-value), admin_users (managed via Supabase Auth with a profiles table), audit_log. Use Row Level Security on all tables — admin users can read and write everything, public can only read non-test shipments and tracking events (for the tracking page). Use Supabase's built-in sequence or a custom atomic counter for tracking code serial numbers, ensuring no collision.
+
+---
+
+ENVIRONMENT AND LOGGING
+
+Every external service credential and configuration value must be in .env.local with a descriptive placeholder. Required variables include at minimum: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, RESEND_FROM_EMAIL, RESEND_FROM_NAME, ADMIN_ALERT_EMAIL, NEXT_PUBLIC_SITE_URL, NEXT_PUBLIC_COMPANY_NAME. Include a .env.example file with all variables documented.
+
+Implement structured server-side logging throughout all API routes and server actions using a lightweight logger (pino or a simple structured console wrapper). Every log entry must include a timestamp, log level, request context (route, method), and relevant entity IDs. Log all shipment status changes, all notification sends (success and failure with Resend error details), all admin actions, all errors with full stack traces, and all database query failures. This logging is essential for production debugging.
+
+---
+
+FINAL REQUIREMENTS
+
+The application must be fully functional — not a demo or wireframe. Every form must submit, every API route must work, every page must render real data from Supabase. The tracking page must be production-quality: server-rendered, handles edge cases (not found, cancelled, exception states), polls for updates, and shows a complete event timeline. The admin panel must be a real working tool an operator can use on day one. The public ship form must actually create a shipment and send emails. The rate calculator must actually compute from the rate table. All Supabase migrations should be included as SQL files in a /supabase/migrations directory. The project should include a README with setup instructions, environment variable documentation, and how to run the database migrations. The codebase should be organised cleanly with clear separation between public routes, admin routes, API routes, database queries, and utility functions. TypeScript types must be generated or written for all Supabase tables.
